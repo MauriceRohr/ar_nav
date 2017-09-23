@@ -1,5 +1,5 @@
 # ar_nav
-A ROS package offering an autonomous flight including waypoint navigation with a quadcopter using ArUco markers
+A ROS package offering an autonomous flight including waypoint navigation with a Crazyflie 2.0 quadcopter using ArUco markers
 
 ## Installation
 Clone repository and compile it

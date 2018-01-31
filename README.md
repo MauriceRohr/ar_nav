@@ -51,6 +51,9 @@ Our board configurations are named after the robots of our lab (we attach the ma
 
 C3PO:
 4 Aruco markers in a square configuration.
+
+<img src="data/c3po/c3po_board.png" width=300>
+
 - Top Left corner: ID0
 - Top Right corner: ID1
 - Bottom Left corner: ID2
@@ -62,6 +65,9 @@ C3PO:
 
 R2D2:
 4 Aruco markers in a square configuration.
+
+<img src="data/r2d2/r2d2_board.png" width=300>
+
 - Top Left corner: ID4
 - Top Right corner: ID5
 - Bottom Left corner: ID6

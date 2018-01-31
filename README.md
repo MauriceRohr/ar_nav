@@ -49,8 +49,7 @@ Print the marker boards provided in the [data](data) folder. Use a calibrated pr
 
 Our board configurations are named after the robots of our lab (we attach the marker boards on top of them).
 
-C3PO:
-4 Aruco markers in a square configuration.
+### C3PO:
 
 <img src="data/c3po/c3po_board.png" width=300>
 
@@ -63,8 +62,7 @@ C3PO:
 - Coordinate system = located in the center of the marker. Holding the marker board in your hands and looking straigth to it with ID0 on the top left corner: X axis right, Y axis up and Z axis coming out of the marker plane.
 - Yaml file for ar_sys: [board_c3po.yml](data/board_c3po.yml)
 
-R2D2:
-4 Aruco markers in a square configuration.
+### R2D2:
 
 <img src="data/r2d2/r2d2_board.png" width=300>
 

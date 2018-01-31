@@ -13,11 +13,11 @@
 	<arg name="cf_uri" default="radio://0/120/2M/E7E7E7E701" />
 	<arg name="cf_joy_dev" default="/dev/input/js0" />
 	<arg name="cf_use_controller" default="true"/>
-	
+
 	<!-- image preparation - reducing interlace -->
 	<node pkg="tud_img_prep" type="img_prep" name="img_prep">
 		<param name="deinterlace_method" value="5" />
-		<param name="equalization_method" value="0" />	
+		<param name="equalization_method" value="0" />
 	</node>
 
 	<!-- undistort image -->
@@ -47,7 +47,7 @@
 		<param name="camera_frame_id" value="cam" />
 		<param name="camera_name" value= "cam"/>
 		<param name="camera_info_url" value= "$(arg camera_calibration)"/>
-	</node>	
+	</node>
 
 	<!-- detect markers -->
 	<node pkg="ar_sys" type="single_board" name="ar_single_board" output="screen">
@@ -55,8 +55,8 @@
 		<remap from="image" to="/cam/$(arg image_undist)" />
 
 		<param name="image_is_rectified" type="bool" value="true"/>
-		<param name="marker_size" type="double" value="0.186"/>
-		<param name="board_config" type="string" value="$(find ar_nav)/data/board_bb8.yml"/>
+		<param name="marker_size" type="double" value="0.16"/>
+		<param name="board_config" type="string" value="$(find ar_nav)/data/board_c3po.yml"/>
 		<param name="board_frame" type="string" value="/board1" />
 		<param name="draw_markers" type="bool" value="false" />
 		<param name="draw_markers_cube" type="bool" value="true" />
@@ -70,7 +70,7 @@
 		<param name="autosize" type="bool" value="true" />
 	</node>
 
-	
+
 
 	<!-- control position of quadrocopter -->
 	<include file="$(find crazyflie_demo)/launch/teleop_xbox360.launch">

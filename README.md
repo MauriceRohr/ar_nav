@@ -7,6 +7,12 @@ The target and current pose are then sent to the crazyflie_ros package were the 
 
 By default the target pose is above the center of the defined Aruco marker with a height that can be configured and modified on runtime.
 
+[![ar_nav video](data/img/youtube_screenshot.png)](https://youtu.be/OU_q05TPRPM "ar_nav Youtube Video demonstration")
+
+
+
+
+
 # Required harware
 - Crazyflie 2.0 with a wireless camera attached to the bottom. For details see the following documents: (Link to the projekt seminar and the bachelor thesis of Guillem)
 

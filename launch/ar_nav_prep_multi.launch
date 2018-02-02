@@ -4,11 +4,11 @@
 	<!-- read arguments -->
 	<arg name="camera_width" default="720"/>
 	<arg name="camera_height" default="480"/>
-	<arg name="camera_device" default="/dev/video1"/>
+  <arg name="camera_device" default="/dev/video0"/>
 	<arg name="camera_fps" default="30"/>
 	<arg name="camera_calibration" default="file://$(find ar_nav)/data/crazyflie.yaml"/>
 	<arg name="image_undist" default="image_rect_color"/>
-	<arg name="controller_frame" default="crazyflie" />
+  <arg name="controller_frame" default="crazyflie/base_link" />
   	<arg name="controller_worldFrame" default="world"/>
 	<arg name="cf_uri" default="radio://0/120/2M/E7E7E7E701" />
 	<arg name="cf_joy_dev" default="/dev/input/js0" />
@@ -92,7 +92,7 @@
 	<!-- marker navigation-->
 	<node pkg="ar_nav" type="multi" name="multi" output="screen">
 		<param name="marker_pose_topic" value="ar_multi_boards/transform" />
-		<param name="waypoints" value="board_r2d2|board_bb8" />
+    <param name="waypoints" value="board_r2d2|board_c3po" />
 		<param name="method" value="manual" />
 	</node>
 

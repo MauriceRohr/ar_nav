@@ -4,7 +4,7 @@
 	<!-- read arguments -->
 	<arg name="camera_width" default="720"/>
 	<arg name="camera_height" default="480"/>
-	<arg name="camera_device" default="/dev/video1"/>
+  <arg name="camera_device" default="/dev/video0"/>
 	<arg name="camera_fps" default="30"/>
 	<arg name="camera_calibration" default="file://$(find ar_nav)/data/crazyflie.yaml"/>
 	<arg name="image_undist" default="image_rect_color"/>

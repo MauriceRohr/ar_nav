@@ -149,6 +149,9 @@ target_link_libraries(single ${catkin_LIBRARIES})
 add_executable(multi src/multi.cpp include/ar_nav/multi.hpp)
 target_link_libraries(multi ${catkin_LIBRARIES})
 
+add_executable(merge_cmd_vel src/merge_cmd_vel.cpp include/ar_nav/merge_cmd_vel.hpp)
+target_link_libraries(merge_cmd_vel ${catkin_LIBRARIES})
+
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(ar_nav_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

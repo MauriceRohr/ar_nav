@@ -15,6 +15,13 @@ By default the target pose is above the center of the defined Aruco marker with 
 
 # Required harware
 - Crazyflie 2.0 with a wireless camera attached to the bottom. For details see the following documents: (Link to the projekt seminar and the bachelor thesis of Guillem)
+- Printed marker boards glued to a hard surface (e.g cardboard)
+- A gamepad, currently the joy ros node is configured to work with the configuration of a Logitech Wireless Gamepad F710. But it can be adapated to any gamepad.
+
+
+Make sure that the Crazyflie ROS package works perfectly with the instructions provided by the package.
+
+
 
 ## Dependencies (non-native)
 
@@ -45,9 +52,18 @@ The other packages should be in your ROS distribution.
 Clone the ar_nav repository and compile:
 ```
 git clone https://github.com/denkrau/ar_nav.git
-catkin_make ar_nav
 ```
+
+Build all the packages using catkin tools:
+
+```
+catkin build ar_nav ar_sys tud_img_prep crazyflie
+```
+
+
 This builds two nodes. The correct node for hovering is `single` and for waypoint navigation `multi`.
+
+
 
 ## Usage
 

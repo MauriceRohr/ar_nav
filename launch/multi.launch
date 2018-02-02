@@ -4,15 +4,16 @@
 	<!-- read arguments -->
 	<arg name="camera_width" default="720"/>
 	<arg name="camera_height" default="480"/>
-	<arg name="camera_device" default="/dev/video1"/>
+  <arg name="camera_device" default="/dev/video0"/>
 	<arg name="camera_fps" default="30"/>
 	<arg name="camera_calibration" default="file://$(find ar_nav)/data/crazyflie.yaml"/>
 	<arg name="image_undist" default="image_rect_color"/>
-	<arg name="controller_frame" default="crazyflie" />
+  <arg name="controller_frame" default="crazyflie/base_link" />
   	<arg name="controller_worldFrame" default="world"/>
-	<arg name="cf_uri" default="radio://0/120/2M/E7E7E7E701" />
-	<arg name="cf_joy_dev" default="/dev/input/js0" />
-	<arg name="cf_use_controller" default="true"/>
+  <arg name="uri" default="radio://0/120/2M/E7E7E7E701" />
+  <arg name="joy_dev" default="/dev/input/js0" />
+  <arg name="use_controller" default="true"/>
+  <arg name="publish_tf" default="true" />
 
 	<!-- capture image -->
 	<node pkg="usb_cam" type="usb_cam_node" name="cam" output="screen" >
@@ -39,17 +40,17 @@
 	</node>
 
 	<!-- detect markers -->
-	<node pkg="ar_sys" type="single_board" name="ar_single_board" output="screen">
+  <node pkg="ar_sys" type="single_board" name="ar_single_board">
 		<remap from="/camera_info" to="/cam/camera_info" />
 		<remap from="/image" to="/cam/$(arg image_undist)" />
-
 		<param name="image_is_rectified" type="bool" value="true"/>
 		<param name="marker_size" type="double" value="0.13"/>
 		<param name="board_config" type="string" value="$(find ar_nav)/data/board_c3po.yml"/>
-		<param name="board_frame" type="string" value="/board1" />
+    <param name="board_frame" type="string" value="/board_c3po" />
 		<param name="draw_markers" type="bool" value="false" />
 		<param name="draw_markers_cube" type="bool" value="true" />
 		<param name="draw_markers_axis" type="bool" value="false" />
+    <param name="publish_tf" value="$(arg publish_tf)" />
 	</node>
 
 	<!-- display captured image -->
@@ -59,29 +60,77 @@
 		<param name="autosize" type="bool" value="true" />
 	</node>
 
-	
+  <!-- ...................................................................... -->
+  <!-- Launch the Crazyflie drive -->
+  <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
+  </include>
 
-	<!-- control position of quadrocopter -->
-	<include file="$(find crazyflie_demo)/launch/teleop_xbox360.launch">
-		<arg name="uri" value="$(arg cf_uri)" />
-     		<param name="dev" value="$(arg cf_joy_dev)" />
-		<param name="use_crazyflie_controller" value="$(arg cf_use_controller)"/>
-	</include>
+  <!-- Launch Joystick tools -->
 
-	<!-- initialize controller of quadropcopter -->
-	<node name="controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
-		<param name="frame" value="$(arg controller_frame)" />
-		<param name="worldFrame" value="$(arg controller_worldFrame)" />
-		<rosparam command="load" file="$(find crazyflie_controller)/config/crazyflie2.yaml" />
+  <group ns="crazyflie">
 
-		<remap from="cmd_vel" to="/crazyflie/cmd_vel" />
-		<remap from="goal" to="/cf_pose" />
-	</node>
+    <include file="$(find crazyflie_driver)/launch/crazyflie_add.launch">
+      <arg name="uri" value="$(arg uri)" />
+      <arg name="tf_prefix" value="crazyflie" />
+      <arg name="enable_logging" value="True" />
+    </include>
+
+    <node name="joy" pkg="joy" type="joy_node" output="screen" >
+      <param name="dev" value="$(arg joy_dev)" />
+    </node>
+
+    <!-- Note that axis IDs are those from the joystick message plus one, to be able to invert axes by specifiying either positive or negative axis numbers.-->
+    <!-- Axis 2 from joy message thus has to be set as '3' or '-3'(inverted mode) below-->
+    <!-- This configuration is for the Logitech Wireless Gamepad F710 -->
+    <node name="quadrotor_teleop" pkg="crazyflie_demo" type="quadrotor_teleop">
+      <param name="x_axis" value="4"/>
+      <param name="y_axis" value="3"/>
+      <param name="z_axis" value="2"/>
+      <param name="yaw_axis" value="1"/>
+      <param name="x_velocity_max" value="30"/>
+      <param name="y_velocity_max" value="-30"/>
+      <param name="z_velocity_max" value="60000"/>
+      <param name="yaw_velocity_max" value="-200"/>
+      <remap from="cmd_vel" to="cmd_vel_teleop" />
+    </node>
+
+    <node name="crazyflie_demo_controller" pkg="crazyflie_demo" type="controller.py" output="screen">
+    <param name="use_crazyflie_controller" value="$(arg use_controller)"/>
+    </node>
+
+
+
+
+    <!-- ...................................................................... -->
+
+    <!-- initialize controller of quadropcopter -->
+    <node name="crazyflie_controller" pkg="crazyflie_controller" type="crazyflie_controller" output="screen">
+      <param name="frame" value="$(arg controller_frame)" />
+      <param name="worldFrame" value="$(arg controller_worldFrame)" />
+      <rosparam command="load" file="$(find crazyflie_controller)/config/crazyflie2.yaml" />
+      <remap from="cmd_vel" to="cmd_vel_controller" />
+      <remap from="goal" to="/cf_pose" />
+    </node>
+
+  </group>
 
 	<!-- marker navigation-->
 	<node pkg="ar_nav" type="multi" name="multi" output="screen">
 		<param name="marker_pose_topic" value="ar_single_board/transform" />
-		<param name="waypoints" value="board_c3po|board2" />
+    <param name="waypoints" value="board_c3po" />
 	</node>
+
+
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find crazyflie_demo)/launch/crazyflie.rviz" />
+
+  <!-- <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot" args="/crazyflie/temperature/temperature"/> -->
+
+  <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot2" args="/crazyflie/battery"/>
+
+  <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot3" args="/crazyflie/rssi"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="crazyflie_cam_tf_br" args="0 0 -0.02 1 0 0 0.0000013 /crazyflie/base_link /cam 100"/>
+
+  <node pkg="tf" type="static_transform_publisher" name="world_to_marker_board_tf_br" args="0 0 0 0 0 0 1 /world /board_c3po 100"/>
 
 </launch>

@@ -6,29 +6,20 @@ ArNavMulti::ArNavMulti() {
 	std::string s;
 	n.param<std::string>("marker_pose_topic", s, "/marker_pose");
 	n.param<std::string>("world_frame", m_world_frame, "world");
-	n.param<std::string>("cf_frame", m_cf_frame, "crazyflie");
-	n.param<std::string>("waypoints", m_waypoints, "board_c3po");
-	n.param<std::string>("method", m_waypoint_change, "auto");
-	m_marker_pose_sub = nh.subscribe(s, 1, &ArNavMulti::markerPoseCallback, this);
+  n.param<std::string>("cf_frame", m_cf_frame, "crazyflie/base_link");
+  n.param<std::string>("ar_boards", m_ar_boards, "board_c3po");
+
+  m_marker_pose_sub = nh.subscribe(s, 1, &ArNavMulti::markerPoseCallback, this);
 	m_cf_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("cf_pose", 1);
-	m_next_waypoint_srv = nh.advertiseService("next_waypoint", &ArNavMulti::onNextWaypoint, this);
-	m_prev_waypoint_srv = nh.advertiseService("prev_waypoint", &ArNavMulti::onPrevWaypoint, this);
 
 	debug_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_pose", 1); // DEBUG, containing current markers pose (without stepping)
-
-	m_current_waypoint_id = 0;
-	m_requested_waypoint_id = 0;
-	m_step_active = false;
-	m_request_active = false;
-	m_next_waypoint_timeout = ros::Time(0.0);
   
-	// split m_waypoints in each waypoint and store in vector 
-	std::stringstream ss(m_waypoints);
-	std::string tok;
-	while (getline(ss, tok, '|')) {
-		m_waypoint_list.push_back(tok);
-	}
-	
+  std::stringstream ssb(m_ar_boards);
+  std::string tok;
+  while (getline(ssb, tok, '|')) {
+    m_ar_boards_list.push_back("/"+tok);
+  }
+
 	// wait for active connections
 	// TODO: replace with subscriber callback
 	ros::Rate rate(10);
@@ -36,57 +27,109 @@ ArNavMulti::ArNavMulti() {
 		rate.sleep();
 }
 
-void ArNavMulti::markerPoseCallback(const geometry_msgs::TransformStamped &bt) {
+void ArNavMulti::markerPoseCallback(const geometry_msgs::TransformStamped &tf_msg) {
 	try {
-		// if requested waypoint is found, target it
-		if (m_request_active && !bt.child_frame_id.std::string::compare("/" + m_waypoint_list[m_requested_waypoint_id])) {
-			setWaypoint();
-		}
+
+    // if requested waypoint is found, target it
+    bool requested_board_detected = false;
+
+    for(std::string ar_board: m_ar_boards_list){
+      if(ar_board == tf_msg.child_frame_id){
+        requested_board_detected = true;
+        ROS_INFO("Requested_board_detected %s", ar_board.c_str());
+        ROS_INFO("Board Parent frame %s", tf_msg.header.frame_id.c_str());
+        ROS_INFO("Board Child frame %s", tf_msg.child_frame_id.c_str());
+      }
+    }
+    if(requested_board_detected){
+      //Then place the goal to hover on top of the board
+      // publish camera transform
+
+      tf::StampedTransform world_to_board_tf;
+      tf::StampedTransform board_to_cam_tf;
+      tf::StampedTransform cam_to_cfbaselink_tf;
+      tf::StampedTransform cam_to_board_tf;
+      tf::StampedTransform world_to_cfbaselink_tf;
+
+      tf::StampedTransform world_to_goal_tf;
+
+      try{
+        m_tf_listener.lookupTransform("/world", "/board_c3po",
+                                 ros::Time(0), world_to_board_tf);
+        m_tf_listener.lookupTransform("/cam", "/crazyflie/base_link",
+                                 ros::Time(0), cam_to_cfbaselink_tf);
+      }
+      catch (tf::TransformException &ex) {
+        ROS_ERROR("%s",ex.what());
+        ros::Duration(1.0).sleep();
+      }
+
+      tf::transformStampedMsgToTF(tf_msg, cam_to_board_tf);
+      board_to_cam_tf.setData(cam_to_board_tf.inverse());
+
+      world_to_cfbaselink_tf.setData(world_to_board_tf*board_to_cam_tf*cam_to_cfbaselink_tf);
+      world_to_cfbaselink_tf.child_frame_id_ = "/crazyflie/base_link";
+      world_to_cfbaselink_tf.frame_id_ = "/world";
+      world_to_cfbaselink_tf.stamp_ = ros::Time::now();
+      m_br.sendTransform(world_to_cfbaselink_tf);
+
+      tf::Vector3 goal_position(0,0,1.0);
+      world_to_goal_tf.setIdentity();
+      world_to_goal_tf.setOrigin(goal_position);
+      world_to_goal_tf.child_frame_id_ = "/crazyflie/goal";
+      world_to_goal_tf.frame_id_ = "/world";
+      world_to_goal_tf.stamp_ = ros::Time::now();
+      m_br.sendTransform(world_to_goal_tf);
+
+    }
+
+
 
 		// wait for right TransformStamped
-		if (!bt.child_frame_id.std::string::compare("/" + m_waypoint_list[m_current_waypoint_id])) {
-			setCfPose(bt);
-			debug_pose_pub.publish(m_cf_pose);
-			float distance = sqrt(pow(bt.transform.translation.x, 2) + pow(bt.transform.translation.y, 2));
-			if (m_step_active) {
-				ROS_WARN_STREAM("Stepping to target: " << m_waypoint_list[m_current_waypoint_id]);
-				// linear target change
-				float step_size = 0.05;
-				float step_range = 0.15;
-				geometry_msgs::TransformStamped step;
-				step.header = bt.header;
-				step.child_frame_id = bt.child_frame_id;
-				step.transform.translation.x = bt.transform.translation.x * step_size / distance;
-				step.transform.translation.y = bt.transform.translation.y * step_size / distance;
-				step.transform.translation.z = bt.transform.translation.z;
-				step.transform.rotation = bt.transform.rotation;
-				setCfPose(step);
-				ROS_INFO_STREAM(step.transform.translation << "\n" << bt.transform.translation);
-				if ((bt.transform.translation.x < step_range && bt.transform.translation.x > -step_range) && (bt.transform.translation.y < step_range && bt.transform.translation.y > -step_range)) {
-					m_step_active = false;
-				}
-			} else {
-				setCfPose(bt);
-			}
+//		if (!bt.child_frame_id.std::string::compare("/" + m_waypoint_list[m_current_waypoint_id])) {
+//			setCfPose(bt);
+//			debug_pose_pub.publish(m_cf_pose);
+//			float distance = sqrt(pow(bt.transform.translation.x, 2) + pow(bt.transform.translation.y, 2));
+//			if (m_step_active) {
+//				ROS_WARN_STREAM("Stepping to target: " << m_waypoint_list[m_current_waypoint_id]);
+//				// linear target change
+//				float step_size = 0.05;
+//				float step_range = 0.15;
+//				geometry_msgs::TransformStamped step;
+//				step.header = bt.header;
+//				step.child_frame_id = bt.child_frame_id;
+//				step.transform.translation.x = bt.transform.translation.x * step_size / distance;
+//				step.transform.translation.y = bt.transform.translation.y * step_size / distance;
+//				step.transform.translation.z = bt.transform.translation.z;
+//				step.transform.rotation = bt.transform.rotation;
+//				setCfPose(step);
+//				ROS_INFO_STREAM(step.transform.translation << "\n" << bt.transform.translation);
+//				if ((bt.transform.translation.x < step_range && bt.transform.translation.x > -step_range) && (bt.transform.translation.y < step_range && bt.transform.translation.y > -step_range)) {
+//					m_step_active = false;
+//				}
+//			} else {
+//				setCfPose(bt);
+//			}
 
-			// broadcast pose and transformation
-			m_cf_pose_pub.publish(m_cf_pose);
-			sendCfPose();
+//			// broadcast pose and transformation
+//      ROS_INFO("Publishing transform");
+//			m_cf_pose_pub.publish(m_cf_pose);
+//			sendCfPose();
 
-			// if CF stays in range of marker, next one is targeted
-			if (!m_waypoint_change.std::string::compare("auto")) {
-				float timeout_range = 0.15;
-				if ((distance < timeout_range && distance > -timeout_range) && m_next_waypoint_timeout != ros::Time(0.0) && !m_request_active) {
-					ros::Duration timeout(4.0);
-					if (ros::Time::now() - m_next_waypoint_timeout > timeout) {
-						requestWaypoint(1);
-					}
-				}
-				else
-					m_next_waypoint_timeout = ros::Time::now();
-			}
-		}
-	}
+//			// if CF stays in range of marker, next one is targeted
+//			if (!m_waypoint_change.std::string::compare("auto")) {
+//				float timeout_range = 0.15;
+//				if ((distance < timeout_range && distance > -timeout_range) && m_next_waypoint_timeout != ros::Time(0.0) && !m_request_active) {
+//					ros::Duration timeout(4.0);
+//					if (ros::Time::now() - m_next_waypoint_timeout > timeout) {
+//						requestWaypoint(1);
+//					}
+//				}
+//				else
+//					m_next_waypoint_timeout = ros::Time::now();
+//			}
+//		}
+  }
 	catch (...) {
 		ROS_ERROR("Failed to publish crazyflie pose");
 	}
@@ -140,37 +183,11 @@ void ArNavMulti::initializeCfPose() {
 	}
 }
 
-bool ArNavMulti::onNextWaypoint(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res) {
-	ROS_INFO_STREAM("Request next waypoint");
-	requestWaypoint(1);
-}
-
-
-bool ArNavMulti::onPrevWaypoint(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res) {
-	ROS_INFO_STREAM("Request previous waypoint");
-	requestWaypoint(-1);
-}
-
-void ArNavMulti::setWaypoint() {
-	m_step_active = true;
-	m_request_active = false;
-	m_current_waypoint_id = m_requested_waypoint_id;
-}
-
-void ArNavMulti::requestWaypoint(int waypoint_offset) {
-	m_request_active = true;
-	int tmp_id = m_requested_waypoint_id + waypoint_offset;
-	if (tmp_id >= 0 && tmp_id < m_waypoint_list.size()) {
-		m_requested_waypoint_id += waypoint_offset;
-	} else {
-		m_requested_waypoint_id = tmp_id % m_waypoint_list.size();
-	}
-}
 
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "multi");
 	ArNavMulti node;
-	node.initializeCfPose();
+  //node.initializeCfPose();
 	ros::spin();
 	return 0;
 }

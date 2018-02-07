@@ -1,7 +1,7 @@
 # ar_nav
-A ROS package offering an autonomous flight including waypoint navigation with a Crazyflie 2.0 quadcopter using ArUco markers
+A ROS package offering autonomous flight for a Crazyflie 2.0 quadcopter using ArUco markers. Only a small wireless camera ([runcam](http://www.runcam.com/) or similar) has to be attached to the bottom of the quadcopter and no external localization system is then needed for autonomous flight.
 
-The system obtains an image from a wireless camera attached to the Crazyflie 2.0, the image is deinterlaced and processed to improve its quality and the distortion is removed. Once the image is ready, the ar_sys package is used for Aruco marker detection and the relative 3D pose of the Crazyflie to the marker is estimated and published.
+The image obtained from the camera attached to bottom of the Crazyflie 2.0 is deinterlaced, processed to improve its quality and rectified. Then the ar_sys package is used for Aruco marker detection and the relative 3D pose of the Crazyflie to the marker is estimated and published.
 
 The target and current pose are then sent to the crazyflie_ros package were the PID control of the quadcopter is implemented and the control signals are sent to the hardware platform.
 
@@ -9,12 +9,10 @@ By default the target pose is above the center of the defined Aruco marker with 
 
 [![ar_nav video](data/img/youtube_screenshot.png)](https://youtu.be/OU_q05TPRPM "ar_nav Youtube Video demonstration")
 
-
-
-
-
 # Required harware
-- Crazyflie 2.0 with a wireless camera attached to the bottom. For details see the following documents: (Link to the projekt seminar and the bachelor thesis of Guillem)
+- Crazyflie 2.0 with a wireless camera attached to the bottom. For details see the following documents:
+  - [Bachelor Thesis - Modelling and Identification of Crazyflie 2 - Guillem Montilla Garcia.pdf](data/documents/Bachelor_Thesis_Modelling_and_Identification_of_Crazyflie_2_Guillem_Montilla.pdf)
+  - [ProjektSeminar WS2016: Integration of a Mini Camera into a Tiny Quadrotor for Navigation with Visual Markers](ProjektSeminar_WS2016_Integration_of_a_Mini_Camera_into_a_Tiny_Quadrotor_for_Navigation_with_Visual_Markers.pdf)
 - Printed marker boards glued to a hard surface (e.g cardboard)
 - A gamepad, currently the joy ros node is configured to work with the configuration of a Logitech Wireless Gamepad F710. But it can be adapated to any gamepad.
 
@@ -75,24 +73,27 @@ Our board configurations are named after the robots of our lab (we attach the ma
 
 <img src="data/c3po/c3po_board.png" width=300>
 
+Aruco markers used for the marker board:
 - Top Left corner: ID0
 - Top Right corner: ID1
 - Bottom Left corner: ID2
 - Bottom Right corner: ID3
 - Aruco marker Side length = 16 cm
 - Separation Between Markers = 2 cm
-- Coordinate system = located in the center of the marker. Holding the marker board in your hands and looking straigth to it with ID0 on the top left corner: X axis right, Y axis up and Z axis coming out of the marker plane.
+- Coordinate system (ROS NED Convention). Holding the marker board in your hands and looking straigth to it with ID0 on the top left corner: X axis UP, Y axis LEFT and Z axis coming out of the marker plane. The coordinate system is in the center of the marker.
 - Yaml file for ar_sys: [board_c3po.yml](data/board_c3po.yml)
 
 ### R2D2:
 
 <img src="data/r2d2/r2d2_board.png" width=300>
 
+Aruco markers used for the marker board:
 - Top Left corner: ID4
 - Top Right corner: ID5
 - Bottom Left corner: ID6
 - Bottom Right corner: ID7
-- Aruco marker Size = 16 cm
+- Aruco marker Side length = 16 cm
+- Separation Between Markers = 2 cm
 - Yaml file for ar_sys: [board_r2d2.yml](data/board_r2d2.yml)
 
 
@@ -101,39 +102,24 @@ Our board configurations are named after the robots of our lab (we attach the ma
 If you want to detect only one board (by default c3po) then use:
 
 ```
-rosrun ar_nav single [params]
+roslaunch ar_nav single.launch
 ```
 
-If you want to detect any number of boards simultaneously then modify the file [boards.yml](data/boards.yml) accoringly, by default c3po and r2d2, and then run:
-
-```
-rosrun ar_nav multi [params]
-```
-
-Due to the many parameters, the recommended way is using the launch files with
-```
-roslaunch ar_nav ar_nav_prep_single.launch
-```
-or
-```
-roslaunch ar_nav ar_nav_prep_multi.launch
-```
-
-## Interaction
+## Topics and parameters
 ### Subscriber
-- marker_pose `<geometry_msgs::TransformStamped>` (in `single` `<geometry_msgs::PoseStamped>`)
+- /marker_pose, `<geometry_msgs::TransformStamped>`: Transformation from camera frame to board frame (/cam to /board_c3po by default). This transformation is published by the marker detection system, in our case ar_sys.
 
-### Publisher
-- cf_pose `<geometry_msgs::PoseStamped>`
-- debug_pose `<geometry_msgs::PoseStamped>`
+### Publishers
+- /cf_pose `<geometry_msgs::PoseStamped>`
+- /debug_pose `<geometry_msgs::PoseStamped>`
 
-### Services
-- next_waypoint `<std_srvs::Empty::Request&, std_srvs::Empty::Response&>`
-- prev_waypoint `<std_srvs::Empty::Request&, std_srvs::Empty::Response&>`
+### Transform Broadcasts
+- /world to /crazyflie/base_link. Needed by the crazyflie controller for control, the world coordinate frame is the same as the aruco board used for detection.
+- /world to /crazyflie/goal. Same information published in the topic /cf_pose, for visualization purposes.
 
-### Parameter
-- marker_pose_topic `<std::string>`
-- world_frame `<std::string>`
-- cf_frame `<std::string>`
-- waypoints `<std::string>` (seperated by `|`)
-- method `<std::string>` (either `auto` or `manual`)
+### Parameters
+- marker_pose_topic `<std::string>`. Default: /cf_pose
+- world_frame `<std::string>`. Default: /world
+- cf_frame `<std::string>`. Default: /crazyflie/base_link
+- ar_boards `<std::string>` (separated by `|`). Default: board_c3po
+- cf_goal_frame  `<std::string>`. Default: /crazyflie/goal

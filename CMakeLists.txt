@@ -127,11 +127,11 @@ include_directories(
 # )
 
 set(AR_NAV_SOURCE_FILES
-	src/multi.cpp
+  src/single.cpp
 )
 
 set(AR_NAV_HEADER_FILES
-	include/ar_nav/multi.hpp
+  include/ar_nav/single.hpp
 )
 
 ## Add cmake target dependencies of the library
@@ -141,8 +141,8 @@ set(AR_NAV_HEADER_FILES
 
 ## Declare a C++ executable
 #add_executable(ar_nav ${AR_NAV_SOURCE_FILES} ${AR_NAV_HEADER_FILES})
-add_executable(multi src/multi.cpp include/ar_nav/multi.hpp)
-target_link_libraries(multi ${catkin_LIBRARIES})
+add_executable(single src/single.cpp include/ar_nav/single.hpp)
+target_link_libraries(single ${catkin_LIBRARIES})
 
 add_executable(merge_cmd_vel src/merge_cmd_vel.cpp include/ar_nav/merge_cmd_vel.hpp)
 target_link_libraries(merge_cmd_vel ${catkin_LIBRARIES})

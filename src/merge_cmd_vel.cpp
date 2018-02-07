@@ -18,24 +18,12 @@ MergeCmdVel::MergeCmdVel()
 
 void MergeCmdVel::merge_cmd_vel(void){
   geometry_msgs::Twist cmd_vel_out;
-
-  cmd_vel_out.linear.x = cmd_vel_controller_.linear.x +
-                         cmd_vel_teleop_.linear.x;
-
-  cmd_vel_out.linear.y = cmd_vel_controller_.linear.y +
-                         cmd_vel_teleop_.linear.y;
-
-  cmd_vel_out.linear.z = cmd_vel_controller_.linear.z +
-                         cmd_vel_teleop_.linear.z;
-
-  cmd_vel_out.angular.x = cmd_vel_controller_.angular.x +
-                         cmd_vel_teleop_.angular.x;
-
-  cmd_vel_out.angular.y = cmd_vel_controller_.angular.y +
-                         cmd_vel_teleop_.angular.y;
-
-  cmd_vel_out.angular.z = cmd_vel_controller_.angular.z +
-                         cmd_vel_teleop_.angular.z;
+  cmd_vel_out.linear.x = cmd_vel_controller_.linear.x + cmd_vel_teleop_.linear.x;
+  cmd_vel_out.linear.y = cmd_vel_controller_.linear.y + cmd_vel_teleop_.linear.y;
+  cmd_vel_out.linear.z = cmd_vel_controller_.linear.z + cmd_vel_teleop_.linear.z;
+  cmd_vel_out.angular.x = cmd_vel_controller_.angular.x + cmd_vel_teleop_.angular.x;
+  cmd_vel_out.angular.y = cmd_vel_controller_.angular.y + cmd_vel_teleop_.angular.y;
+  cmd_vel_out.angular.z = cmd_vel_controller_.angular.z + cmd_vel_teleop_.angular.z;
 
   cmd_vel_pub_.publish(cmd_vel_out);
 }
@@ -55,13 +43,5 @@ int main(int argc,char* argv[])
 {
   ros::init(argc, argv, "merge_cmd_vel"); // Name of the node
   MergeCmdVel Node;
-
-  int32_t looprate = 1000; //hz
-  ros::Rate loop_rate(looprate);
-
-  //ros::spin();
-  while(Node.nh.ok()){
-    ros::spinOnce();
-    loop_rate.sleep();
-  }
+  ros::spin();
 }

@@ -1,4 +1,41 @@
 #include "ar_nav/multi.hpp"
+#include <tf2/transform_datatypes.h>
+#include <angles/angles.h>
+
+namespace tf
+{
+  inline
+  void convert(const geometry_msgs::Transform& trans, geometry_msgs::Pose& pose)
+  {
+      pose.orientation = trans.rotation;
+      pose.position.x = trans.translation.x;
+      pose.position.y = trans.translation.y;
+      pose.position.z = trans.translation.z;
+  }
+
+  inline
+  void convert(const geometry_msgs::Pose& pose, geometry_msgs::Transform& trans)
+    {
+      trans.rotation = pose.orientation;
+      trans.translation.x = pose.position.x;
+      trans.translation.y = pose.position.y;
+      trans.translation.z = pose.position.z;
+  }
+
+  inline
+  void convert(const geometry_msgs::TransformStamped& trans, geometry_msgs::PoseStamped& pose)
+  {
+      convert(trans.transform, pose.pose);
+      pose.header = trans.header;
+  }
+
+  inline
+  void convert(const geometry_msgs::PoseStamped& pose, geometry_msgs::TransformStamped& trans)
+  {
+      convert(pose.pose, trans.transform);
+      trans.header = pose.header;
+  }
+}
 
 ArNavMulti::ArNavMulti() {
 	// initialize topics
@@ -7,12 +44,11 @@ ArNavMulti::ArNavMulti() {
 	n.param<std::string>("marker_pose_topic", s, "/marker_pose");
 	n.param<std::string>("world_frame", m_world_frame, "world");
   n.param<std::string>("cf_frame", m_cf_frame, "crazyflie/base_link");
-  n.param<std::string>("ar_boards", m_ar_boards, "board_c3po");
+  n.param<std::string>("ar_boards", m_ar_boards, "aruco_boards");
 
   m_marker_pose_sub = nh.subscribe(s, 1, &ArNavMulti::markerPoseCallback, this);
 	m_cf_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("cf_pose", 1);
-
-	debug_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_pose", 1); // DEBUG, containing current markers pose (without stepping)
+  debug_pose_pub = nh.advertise<geometry_msgs::PoseStamped>("debug_pose", 1);
   
   std::stringstream ssb(m_ar_boards);
   std::string tok;
@@ -24,7 +60,26 @@ ArNavMulti::ArNavMulti() {
 	// TODO: replace with subscriber callback
 	ros::Rate rate(10);
 	while (m_cf_pose_pub.getNumSubscribers() < 1)
+  {
 		rate.sleep();
+
+    // We publish some identity transforms and goal poses for the crazyflie controller
+    // Since we are not using an external localization system, we get a
+    // valid transformation tree only when the aruco_board is in the field of view
+    // of the camera.
+    tf::StampedTransform init_tf;
+    init_tf.setIdentity();
+    init_tf.frame_id_ = "/world";
+    init_tf.child_frame_id_ = "/crazyflie/base_link";
+    init_tf.stamp_ = ros::Time::now();    
+    m_br.sendTransform(init_tf);
+
+    geometry_msgs::TransformStamped goal_tf_msg;
+    geometry_msgs::PoseStamped goal_pose_msg;
+    tf::transformStampedTFToMsg(init_tf, goal_tf_msg);
+    tf::convert(goal_tf_msg, goal_pose_msg);
+    m_cf_pose_pub.publish(goal_pose_msg);
+  }
 }
 
 void ArNavMulti::markerPoseCallback(const geometry_msgs::TransformStamped &tf_msg) {
@@ -36,9 +91,9 @@ void ArNavMulti::markerPoseCallback(const geometry_msgs::TransformStamped &tf_ms
     for(std::string ar_board: m_ar_boards_list){
       if(ar_board == tf_msg.child_frame_id){
         requested_board_detected = true;
-        ROS_INFO("Requested_board_detected %s", ar_board.c_str());
-        ROS_INFO("Board Parent frame %s", tf_msg.header.frame_id.c_str());
-        ROS_INFO("Board Child frame %s", tf_msg.child_frame_id.c_str());
+        ROS_DEBUG("Requested_board_detected %s", ar_board.c_str());
+        ROS_DEBUG("Board Parent frame %s", tf_msg.header.frame_id.c_str());
+        ROS_DEBUG("Board Child frame %s", tf_msg.child_frame_id.c_str());
       }
     }
     if(requested_board_detected){
@@ -67,119 +122,39 @@ void ArNavMulti::markerPoseCallback(const geometry_msgs::TransformStamped &tf_ms
       tf::transformStampedMsgToTF(tf_msg, cam_to_board_tf);
       board_to_cam_tf.setData(cam_to_board_tf.inverse());
 
+
+
       world_to_cfbaselink_tf.setData(world_to_board_tf*board_to_cam_tf*cam_to_cfbaselink_tf);
       world_to_cfbaselink_tf.child_frame_id_ = "/crazyflie/base_link";
       world_to_cfbaselink_tf.frame_id_ = "/world";
       world_to_cfbaselink_tf.stamp_ = ros::Time::now();
       m_br.sendTransform(world_to_cfbaselink_tf);
 
-      tf::Vector3 goal_position(0,0,1.0);
+
+      // The Goal follows ROS conventions (Z axis up, X to the righ and Y to the forwar direction of movement)
+      // We Position the Goal above the world coordinate frame (our marker)
+      tf::Vector3 goal_position(0,0,0.5);
       world_to_goal_tf.setIdentity();
       world_to_goal_tf.setOrigin(goal_position);
       world_to_goal_tf.child_frame_id_ = "/crazyflie/goal";
       world_to_goal_tf.frame_id_ = "/world";
       world_to_goal_tf.stamp_ = ros::Time::now();
+
       m_br.sendTransform(world_to_goal_tf);
 
+      geometry_msgs::TransformStamped goal_tf_msg;
+      geometry_msgs::PoseStamped goal_pose_msg;
+      tf::transformStampedTFToMsg(world_to_goal_tf, goal_tf_msg);
+      tf::convert(goal_tf_msg, goal_pose_msg);
+
+
+      ROS_DEBUG("Publishing transform and goal pose:%f, transform:%f", goal_pose_msg.pose.position.z, goal_tf_msg.transform.translation.z);
+      m_cf_pose_pub.publish(goal_pose_msg);
     }
 
-
-
-		// wait for right TransformStamped
-//		if (!bt.child_frame_id.std::string::compare("/" + m_waypoint_list[m_current_waypoint_id])) {
-//			setCfPose(bt);
-//			debug_pose_pub.publish(m_cf_pose);
-//			float distance = sqrt(pow(bt.transform.translation.x, 2) + pow(bt.transform.translation.y, 2));
-//			if (m_step_active) {
-//				ROS_WARN_STREAM("Stepping to target: " << m_waypoint_list[m_current_waypoint_id]);
-//				// linear target change
-//				float step_size = 0.05;
-//				float step_range = 0.15;
-//				geometry_msgs::TransformStamped step;
-//				step.header = bt.header;
-//				step.child_frame_id = bt.child_frame_id;
-//				step.transform.translation.x = bt.transform.translation.x * step_size / distance;
-//				step.transform.translation.y = bt.transform.translation.y * step_size / distance;
-//				step.transform.translation.z = bt.transform.translation.z;
-//				step.transform.rotation = bt.transform.rotation;
-//				setCfPose(step);
-//				ROS_INFO_STREAM(step.transform.translation << "\n" << bt.transform.translation);
-//				if ((bt.transform.translation.x < step_range && bt.transform.translation.x > -step_range) && (bt.transform.translation.y < step_range && bt.transform.translation.y > -step_range)) {
-//					m_step_active = false;
-//				}
-//			} else {
-//				setCfPose(bt);
-//			}
-
-//			// broadcast pose and transformation
-//      ROS_INFO("Publishing transform");
-//			m_cf_pose_pub.publish(m_cf_pose);
-//			sendCfPose();
-
-//			// if CF stays in range of marker, next one is targeted
-//			if (!m_waypoint_change.std::string::compare("auto")) {
-//				float timeout_range = 0.15;
-//				if ((distance < timeout_range && distance > -timeout_range) && m_next_waypoint_timeout != ros::Time(0.0) && !m_request_active) {
-//					ros::Duration timeout(4.0);
-//					if (ros::Time::now() - m_next_waypoint_timeout > timeout) {
-//						requestWaypoint(1);
-//					}
-//				}
-//				else
-//					m_next_waypoint_timeout = ros::Time::now();
-//			}
-//		}
   }
 	catch (...) {
 		ROS_ERROR("Failed to publish crazyflie pose");
-	}
-}
-
-void ArNavMulti::sendCfPose() {
-	try {
-		m_transform.setOrigin(tf::Vector3(m_cf_pose.pose.position.x, m_cf_pose.pose.position.y, m_cf_pose.pose.position.z));
-		m_transform.setRotation(tf::Quaternion(m_cf_pose.pose.orientation.x, m_cf_pose.pose.orientation.y, m_cf_pose.pose.orientation.z, m_cf_pose.pose.orientation.w));
-		m_br.sendTransform(tf::StampedTransform(m_transform, ros::Time::now(), m_world_frame, m_cf_frame));
-	}
-	catch (...) {
-		ROS_ERROR("Failed to update frame relation");
-	}
-}
-
-void ArNavMulti::setCfPose(const geometry_msgs::TransformStamped &bt) {
-	// transform TransformStamped to PoseStamped
-	m_cf_pose.header.seq = bt.header.seq;
-	m_cf_pose.header.stamp = bt.header.stamp;
-	m_cf_pose.header.frame_id = bt.header.frame_id;
-	m_cf_pose.pose.position.x = bt.transform.translation.y;
-	m_cf_pose.pose.position.y = bt.transform.translation.x;
-	m_cf_pose.pose.position.z = bt.transform.translation.z;
-	m_cf_pose.pose.orientation.x = bt.transform.rotation.y;
-	m_cf_pose.pose.orientation.y = bt.transform.rotation.x;
-	m_cf_pose.pose.orientation.z = bt.transform.rotation.z;
-	m_cf_pose.pose.orientation.w = bt.transform.rotation.w;
-
-	tfScalar roll, pitch, yaw;
-    	tf::Matrix3x3(tf::Quaternion(m_cf_pose.pose.orientation.x, m_cf_pose.pose.orientation.y, m_cf_pose.pose.orientation.z, m_cf_pose.pose.orientation.w)).getRPY(roll, pitch, yaw);
-}
-
-void ArNavMulti::initializeCfPose() {
-	try {
-		m_cf_pose.header.seq = 0;
-		m_cf_pose.header.stamp = ros::Time::now();
-		m_cf_pose.header.frame_id = m_cf_frame;
-	      	m_cf_pose.pose.position.x = 0.0f;
-	      	m_cf_pose.pose.position.y = 0.0f;
-	      	m_cf_pose.pose.position.z = 0.0f;
-	      	m_cf_pose.pose.orientation.x = 0.0f;
-	      	m_cf_pose.pose.orientation.y = 0.0f;
-	      	m_cf_pose.pose.orientation.z = 0.0f;
-	      	m_cf_pose.pose.orientation.w = 1.0f;
-		m_cf_pose_pub.publish(m_cf_pose);
-		sendCfPose();
-	}
-	catch (...) {
-		ROS_WARN("Could not initialize crazyflie frame");
 	}
 }
 
@@ -187,7 +162,6 @@ void ArNavMulti::initializeCfPose() {
 int main(int argc, char** argv) {
 	ros::init(argc, argv, "multi");
 	ArNavMulti node;
-  //node.initializeCfPose();
 	ros::spin();
 	return 0;
 }

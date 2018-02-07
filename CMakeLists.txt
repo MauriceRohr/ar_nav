@@ -127,12 +127,10 @@ include_directories(
 # )
 
 set(AR_NAV_SOURCE_FILES
-	src/single.cpp
 	src/multi.cpp
 )
 
 set(AR_NAV_HEADER_FILES
-	include/ar_nav/single.hpp
 	include/ar_nav/multi.hpp
 )
 
@@ -143,9 +141,6 @@ set(AR_NAV_HEADER_FILES
 
 ## Declare a C++ executable
 #add_executable(ar_nav ${AR_NAV_SOURCE_FILES} ${AR_NAV_HEADER_FILES})
-add_executable(single src/single.cpp include/ar_nav/single.hpp)
-target_link_libraries(single ${catkin_LIBRARIES})
-
 add_executable(multi src/multi.cpp include/ar_nav/multi.hpp)
 target_link_libraries(multi ${catkin_LIBRARIES})
 

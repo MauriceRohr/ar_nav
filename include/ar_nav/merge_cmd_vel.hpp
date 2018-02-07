@@ -3,10 +3,6 @@
 
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
-#include "geometry_msgs/TwistStamped.h"
-//#include "tud_coop_uv/SetController.h"
-#include <unordered_map>
-
 
 class MergeCmdVel
 {

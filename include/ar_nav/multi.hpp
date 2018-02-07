@@ -16,31 +16,16 @@ public:
 	ArNavMulti();
 	ros::NodeHandle nh;
 
-	// Functions
-	void sendCfPose();
-	void setCfPose(const geometry_msgs::TransformStamped &msg);
-	void initializeCfPose();
-	bool onNextWaypoint(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
-	bool onPrevWaypoint(std_srvs::Empty::Request& req, std_srvs::Empty::Response& res);
-
-
 private:
 	// Functions
 	void markerPoseCallback(const geometry_msgs::TransformStamped &msg);
-	void setWaypoint();
-	void requestWaypoint(int waypoint_offset);
 
 	// Subscribers
 	ros::Subscriber m_marker_pose_sub;
 
 	// Publisher
 	ros::Publisher m_cf_pose_pub;
-
 	ros::Publisher debug_pose_pub;
-
-	// Services
-	ros::ServiceServer m_next_waypoint_srv;
-	ros::ServiceServer m_prev_waypoint_srv;
 
 	// Variables
   tf::TransformListener m_tf_listener;
@@ -52,9 +37,6 @@ private:
 
   std::vector<std::string> m_ar_boards_list;
   std::string m_ar_boards;
-
-	bool m_step_active;
-	bool m_request_active;
 };
 
 #endif	// AR_NAV_MULTI_HPP

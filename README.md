@@ -31,11 +31,15 @@ In the src directory of your ROS catking workspace:
 ```
 cd ~\catkin_ws\src
 ```
+Install required oficial ROS packages:
+```
+sudo apt-get install ros-kinetic-usb-cam ros-kinetic-image-proc
+```
 Clone all the necessary packages:
 ```
 git clone https://github.com/raultron/tud_img_prep.git
 
-git clone https://github.com/raultron/ar_sys.git
+git clone -b kinetic-devel https://github.com/raultron/ar_sys.git
 
 git clone https://github.com/whoenig/crazyflie_ros.git
 ```

@@ -51,9 +51,9 @@ Use catkin_make on your workspace to compile.
 The other packages should be in your ROS distribution.
 
 ## Installation
-Clone the ar_nav repository and compile:
+Clone the ar_nav repository (kinetic-devel branch) and compile:
 ```
-git clone https://github.com/denkrau/ar_nav.git
+git clone -b kinetic-devel https://github.com/raultron/ar_nav.git
 catkin_make ar_nav
 ```
 This builds two nodes. The correct node for hovering is `single` and for waypoint navigation `multi`.

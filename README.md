@@ -42,7 +42,12 @@ git clone https://github.com/raultron/tud_img_prep.git
 git clone -b kinetic-devel https://github.com/raultron/ar_sys.git
 
 git clone https://github.com/whoenig/crazyflie_ros.git
+cd crazyflie_ros
+git submodule init
+git submodule update
 ```
+Use catkin_make on your workspace to compile.
+
 The other packages should be in your ROS distribution.
 
 ## Installation
